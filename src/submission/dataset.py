@@ -176,6 +176,52 @@ class CharCorruptionDataset(Dataset):
         ### [part e]: see spec above
 
         ### START CODE HERE
+        document = self.data[idx]
+
+        min_length = 4
+        max_length = int(self.block_size * 3 / 4)
+        max_length = min(max_length, len(document))
+
+        if len(document) <= min_length:
+            truncated_document = document
+        else:
+            truncate_length = random.randint(min_length, max_length)
+            truncated_document = document[:truncate_length]
+        
+        truncated_length = len(truncated_document)
+
+        # Step 2: Break into prefix, masked_content, and suffix
+        avg_masked_length = max(1, truncated_length // 4)
+        max_masked_length = max(1, 2 * avg_masked_length)
+        max_masked_length = min(max_masked_length, truncated_length - 2)  # Ensure room for prefix and suffix
+
+        masked_length = random.randint(1, max_masked_length)
+        start_idx = random.randint(0, truncated_length - masked_length)
+
+        prefix = truncated_document[:start_idx]
+        masked_content = truncated_document[start_idx:start_idx + masked_length]
+        suffix = truncated_document[start_idx + masked_length:]
+
+        masked_string = prefix + self.MASK_CHAR + suffix + self.MASK_CHAR + masked_content + self.MASK_CHAR
+
+        # Pad or truncate masked_string to length self.block_size + 1
+        if len(masked_string) >= self.block_size + 1:
+            masked_string = masked_string[:self.block_size + 1]
+        else:
+            num_pads = self.block_size + 1 - len(masked_string)
+            pads = self.PAD_CHAR * num_pads
+            masked_string = masked_string + pads
+        
+        input_string = masked_string[:-1]
+        output_string = masked_string[1:]
+
+        x_indices = [self.stoi.get(c, 0) for c in input_string]
+        y_indices = [self.stoi.get(c, 0) for c in output_string]
+
+        x = torch.tensor(x_indices, dtype=torch.long)
+        y = torch.tensor(y_indices, dtype=torch.long)
+
+        return (x, y)
         ### END CODE HERE
 
         raise NotImplementedError
