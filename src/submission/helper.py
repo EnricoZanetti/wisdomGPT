@@ -63,7 +63,7 @@ def finetune(reading_params_path, finetune_corpus_path, pretrain_dataset, block_
     ### START CODE HERE
 
     # Create the finetuning dataset from the corpus path
-    finetune_dataset = NameDataset(filename=finetune_corpus_path, block_size=block_size)
+    finetune_dataset = NameDataset(data=finetune_corpus_path, pretraining_dataset=pretrain_dataset)
 
     if reading_params_path is not None:
         # Load pretrained model parameters
