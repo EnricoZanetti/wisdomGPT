@@ -62,6 +62,9 @@ def finetune(reading_params_path, finetune_corpus_path, pretrain_dataset, block_
     tconf = None #TrainerConfig object (see trainer.py for more details)
     ### START CODE HERE
 
+    # Create the finetuning dataset from the corpus path
+    finetune_dataset = NameDataset(filename=finetune_corpus_path, block_size=block_size)
+
     if reading_params_path is not None:
         # Load pretrained model parameters
         model.load_state_dict(torch.load(reading_params_path, map_location=torch.device('cpu'), weights_only=True))
@@ -88,7 +91,7 @@ def finetune(reading_params_path, finetune_corpus_path, pretrain_dataset, block_
         )
 
     # Create the Trainer object using the finetuning dataset
-    trainer_obj = Trainer(model, finetune_corpus_path, None, tconf)
+    trainer_obj = Trainer(model, finetune_dataset, None, tconf)
 
     ### END CODE HERE
     return tconf, trainer_obj
