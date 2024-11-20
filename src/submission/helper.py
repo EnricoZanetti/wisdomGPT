@@ -62,36 +62,42 @@ def finetune(reading_params_path, finetune_corpus_path, pretrain_dataset, block_
     tconf = None #TrainerConfig object (see trainer.py for more details)
     ### START CODE HERE
 
-    # Create the finetuning dataset from the corpus path
-    finetune_dataset = NameDataset(data=finetune_corpus_path, pretraining_dataset=pretrain_dataset)
+    #---Without pretrained
+    max_epochs = 75 if reading_params_path is None else 10
+    batch_size = 256
+    learning_rate = finetune_lr
+    lr_decay = True
+    warmup_tokens = 512 * 20
+    final_tokens = 200 * len(pretrain_dataset) * block_size
+    num_workers = 4
+
+      #---With pretrained
+    #    max_epochs=10
+    #    batch_size=256
+    #    learning_rate=6e-4
+    #    lr_decay=True
+    #    warmup_tokens=512*20
+    #    final_tokens=200*len(pretrain_dataset)*block_size
+    #    num_workers=4
+
+    tconf = TrainerConfig(
+        max_epochs=max_epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        lr_decay=lr_decay,
+        warmup_tokens=warmup_tokens,
+        final_tokens=final_tokens,
+        num_workers=num_workers
+    )
 
     if reading_params_path is not None:
-        # Load pretrained model parameters
-        model.load_state_dict(torch.load(reading_params_path, map_location=torch.device('cpu'), weights_only=True))
-        # Use hyperparameters for finetuning WITH a pretrained model
-        tconf = TrainerConfig(
-            max_epochs=10,
-            batch_size=256,
-            learning_rate=finetune_lr,
-            lr_decay=True,
-            warmup_tokens=512 * 20,
-            final_tokens=200 * len(pretrain_dataset) * block_size,
-            num_workers=0
-        )
-    else:
-        # Use hyperparameters for finetuning WITHOUT a pretrained model
-        tconf = TrainerConfig(
-            max_epochs=75,
-            batch_size=256,
-            learning_rate=finetune_lr,
-            lr_decay=True,
-            warmup_tokens=512 * 20,
-            final_tokens=200 * len(pretrain_dataset) * block_size,
-            num_workers=0
-        )
+        pretrained_state_dict = torch.load(reading_params_path, map_location=torch.device('cpu'))
+        model.load_state_dict(pretrained_state_dict)
 
-    # Create the Trainer object using the finetuning dataset
-    trainer_obj = Trainer(model, finetune_dataset, None, tconf)
+    data = open(finetune_corpus_path, 'r').read() 
+    train_dataset = NameDataset(data, pretrain_dataset)
+
+    trainer_obj = Trainer(model, train_dataset, None, tconf)
 
     ### END CODE HERE
     return tconf, trainer_obj
@@ -130,6 +136,7 @@ def pretrain(pretrain_dataset, block_size, model, pretrain_lr=6e-3, writer=None)
 
     # Create the Trainer object using the pretraining dataset
     trainer_obj = Trainer(model, pretrain_dataset, None, tconf)
+
     ### END CODE HERE
     return tconf, trainer_obj
 
@@ -141,6 +148,7 @@ def train(model, writing_params_path, trainer_obj):
     ###
     ### Note: trainer_obj is of type Trainer (see trainer.py for more details)
     ### START CODE HERE
+
     # Train the model using the trainer object
     trainer_obj.train()
 
