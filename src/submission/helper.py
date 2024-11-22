@@ -22,6 +22,10 @@ def initialize_perceiver_model(mconf, bottleneck_dim=32):
     ### [part g]: Make some other model here
 
     ### START CODE HERE
+    # Set the bottleneck dimension for the perceiver variant
+    mconf.bottleneck_dim = bottleneck_dim
+    # Initialize the GPT model with the modified configuration
+    attention_model = GPT(mconf)
     ### END CODE HERE
     return attention_model
 
