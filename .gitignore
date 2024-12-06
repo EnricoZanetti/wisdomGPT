@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
 
 # C extensions
 *.so
@@ -135,7 +136,5 @@ dmypy.json
 main.pdf
 
 # Solution-related files
-*_soln*
 *_(soln)*
 *_(soln)/*
-.DS_Store
