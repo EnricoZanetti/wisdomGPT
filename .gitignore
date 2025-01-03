@@ -94,3 +94,4 @@ venv.bak/
 *.bak
 *.backup
 *.log~
+.DS_Store
