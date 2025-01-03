@@ -4,69 +4,74 @@ from .trainer import Trainer, TrainerConfig
 
 import torch
 import random
+
 random.seed(0)
 
-def initialize_vanilla_model(mconf):
-    attention_model = None
-    ### TODO:
-    ### [part c]: Make some model here
 
-    ### START CODE HERE
+def initialize_vanilla_model(mconf):
+    """
+    Initializes a standard GPT model using the provided configuration.
+
+    Args:
+        mconf: Model configuration object.
+
+    Returns:
+        A GPT model initialized with the given configuration.
+    """
+    attention_model = None
+
     attention_model = GPT(mconf)
-    ### END CODE HERE
+
     return attention_model
+
 
 def initialize_perceiver_model(mconf, bottleneck_dim=32):
-    attention_model = None
-    ### TODO
-    ### [part g]: Make some other model here
+    """
+    Initializes a Perceiver variant of the GPT model by adding a bottleneck
+    dimension to the configuration.
 
-    ### START CODE HERE
-    # Set the bottleneck dimension for the perceiver variant
+    Args:
+        mconf: Model configuration object.
+        bottleneck_dim: Bottleneck dimension for the Perceiver variant.
+
+    Returns:
+        A Perceiver GPT model initialized with the modified configuration.
+    """
+    attention_model = None
+
     mconf.bottleneck_dim = bottleneck_dim
-    # Initialize the GPT model with the modified configuration
     attention_model = GPT(mconf)
-    ### END CODE HERE
+
     return attention_model
 
-def finetune(reading_params_path, finetune_corpus_path, pretrain_dataset, block_size, model, finetune_lr=6e-4, writer=None):
-    ### TODO:
-    ### [part c] [part f]:
-    ### - Given:
-    ###     1. A finetuning corpus specified in finetune_corpus_path
-    ###     2. A path reading_params_path containing pretrained model
-    ###         parameters, or None if finetuning without a pretrained model
-    ### - Goals:
-    ###     1. If reading_params_path is specified, load these parameters
-    ###         into the model
-    ###     2. Finetune the model on this corpus
-    ###
-    ### - Make sure to use the following hyperparameters:
-    ###     Hyperparameters for finetuning WITHOUT a pretrained model:
-    ###         max_epochs=75
-    ###         batch_size=256
-    ###         learning_rate=6e-4
-    ###         lr_decay=True
-    ###         warmup_tokens=512*20
-    ###         final_tokens=200*len(pretrain_dataset)*block_size
-    ###         num_workers=0
-    ###     Hyperparameters for finetuning WITH a pretrained model:
-    ###         max_epochs=10
-    ###         batch_size=256
-    ###         learning_rate=6e-4
-    ###         lr_decay=True
-    ###         warmup_tokens=512*20
-    ###         final_tokens=200*len(pretrain_dataset)*block_size
-    ###         num_workers=0
-    ###
-    ###
-    ### Note: Please use torch.load(reading_params_path, map_location=torch.device('cpu'), weights_only=True) to load pretrained model 
 
-    trainer_obj = None #Trainer object (see trainer.py for more details)
-    tconf = None #TrainerConfig object (see trainer.py for more details)
-    ### START CODE HERE
+def finetune(
+    reading_params_path,
+    finetune_corpus_path,
+    pretrain_dataset,
+    block_size,
+    model,
+    finetune_lr=6e-4,
+    writer=None,
+):
+    """
+    Fine-tunes a GPT model on a specified corpus.
 
-    #---Without pretrained
+    Args:
+        reading_params_path: Path to pretrained model parameters, or None for training from scratch.
+        finetune_corpus_path: Path to the finetuning corpus.
+        pretrain_dataset: Dataset used during pretraining, for configuration purposes.
+        block_size: Maximum sequence length for the model.
+        model: The GPT model to be fine-tuned.
+        finetune_lr: Learning rate for fine-tuning.
+        writer: Optional writer for logging.
+
+    Returns:
+        A tuple containing the TrainerConfig and Trainer object.
+    """
+    trainer_obj = None
+    tconf = None
+
     max_epochs = 75 if reading_params_path is None else 10
     batch_size = 256
     learning_rate = finetune_lr
@@ -75,15 +80,6 @@ def finetune(reading_params_path, finetune_corpus_path, pretrain_dataset, block_
     final_tokens = 200 * len(pretrain_dataset) * block_size
     num_workers = 4
 
-      #---With pretrained
-    #    max_epochs=10
-    #    batch_size=256
-    #    learning_rate=6e-4
-    #    lr_decay=True
-    #    warmup_tokens=512*20
-    #    final_tokens=200*len(pretrain_dataset)*block_size
-    #    num_workers=4
-
     tconf = TrainerConfig(
         max_epochs=max_epochs,
         batch_size=batch_size,
@@ -91,43 +87,39 @@ def finetune(reading_params_path, finetune_corpus_path, pretrain_dataset, block_
         lr_decay=lr_decay,
         warmup_tokens=warmup_tokens,
         final_tokens=final_tokens,
-        num_workers=num_workers
+        num_workers=num_workers,
     )
 
     if reading_params_path is not None:
-        pretrained_state_dict = torch.load(reading_params_path, map_location=torch.device('cpu'))
+        pretrained_state_dict = torch.load(
+            reading_params_path, map_location=torch.device("cpu")
+        )
         model.load_state_dict(pretrained_state_dict)
 
-    data = open(finetune_corpus_path, 'r').read() 
+    data = open(finetune_corpus_path, "r").read()
     train_dataset = NameDataset(data, pretrain_dataset)
-
     trainer_obj = Trainer(model, train_dataset, None, tconf)
 
-    ### END CODE HERE
     return tconf, trainer_obj
 
+
 def pretrain(pretrain_dataset, block_size, model, pretrain_lr=6e-3, writer=None):
-    ### TODO:
-    ### [part f]:
-    ### - Given:
-    ###     1. A corpus specified in pretrain_dataset
-    ### - Goals:
-    ###     1. Pretrain the model on this corpus
-    ###
-    ### - Make sure to use the following hyperparameters for pretraining:
-    ###     max_epochs=650
-    ###     batch_size=128
-    ###     learning_rate=6e-3
-    ###     lr_decay=True
-    ###     warmup_tokens=512*20
-    ###     final_tokens=200*len(pretrain_dataset)*block_size
-    ###     num_workers=0
+    """
+    Pretrains a GPT model on a given dataset.
 
-    trainer_obj = None #Trainer object (see trainer.py for more details)
-    tconf = None #TrainerConfig object (see trainer.py for more details)
+    Args:
+        pretrain_dataset: Dataset for pretraining the model.
+        block_size: Maximum sequence length for the model.
+        model: The GPT model to be pretrained.
+        pretrain_lr: Learning rate for pretraining.
+        writer: Optional writer for logging.
 
-    ### START CODE HERE
-    # Create the TrainerConfig with the specified hyperparameters
+    Returns:
+        A tuple containing the TrainerConfig and Trainer object.
+    """
+    trainer_obj = None
+    tconf = None
+
     tconf = TrainerConfig(
         max_epochs=650,
         batch_size=128,
@@ -135,28 +127,24 @@ def pretrain(pretrain_dataset, block_size, model, pretrain_lr=6e-3, writer=None)
         lr_decay=True,
         warmup_tokens=512 * 20,
         final_tokens=200 * len(pretrain_dataset) * block_size,
-        num_workers=0
+        num_workers=0,
     )
 
-    # Create the Trainer object using the pretraining dataset
     trainer_obj = Trainer(model, pretrain_dataset, None, tconf)
 
-    ### END CODE HERE
     return tconf, trainer_obj
 
+
 def train(model, writing_params_path, trainer_obj):
-    ### TODO:
-    ### - Given:
-    ###     An output path writing_params_path for the model parameters
-    ### [part c]:
-    ###
-    ### Note: trainer_obj is of type Trainer (see trainer.py for more details)
-    ### START CODE HERE
+    """
+    Trains the model using the Trainer object and saves the model parameters.
 
-    # Train the model using the trainer object
+    Args:
+        model: The GPT model to be trained.
+        writing_params_path: Path to save the trained model parameters.
+        trainer_obj: Trainer object that manages the training process.
+    """
     trainer_obj.train()
-
-    # Save the trained model parameters to the specified path
     torch.save(model.state_dict(), writing_params_path)
-    ### END CODE HERE
+
     return

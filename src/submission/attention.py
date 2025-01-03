@@ -1,10 +1,5 @@
 """
-Originally forked from Andrej Karpathy's minGPT.
-
-XCS224N : Homework 5
-
-John Hewitt <johnhew@stanford.edu>
-Ansh Khurana <anshk@stanford.edu>
+Originally derived from Andrej Karpathy's minGPT implementation.
 """
 
 import math
@@ -16,106 +11,128 @@ from torch.nn import functional as F
 
 logger = logging.getLogger(__name__)
 
+
 class CausalSelfAttention(nn.Module):
     """
-    A vanilla multi-head masked self-attention layer with a projection at the end.
-    I believe I could have just used torch.nn.MultiheadAttention but their documentation
-    is all but absent and code ugly so I don't trust it, rolling my own here.
+    Implements a standard multi-head masked self-attention mechanism with
+    an additional projection layer. This custom implementation provides
+    flexibility and control over the attention mechanism.
     """
 
     def __init__(self, config):
         super().__init__()
-        assert config.n_embd % config.n_head == 0
-        # key, query, value projections for all heads
+        assert (
+            config.n_embd % config.n_head == 0
+        ), "Embedding dimension must be divisible by the number of heads."
+
+        # Projections for keys, queries, and values
         self.key = nn.Linear(config.n_embd, config.n_embd)
         self.query = nn.Linear(config.n_embd, config.n_embd)
         self.value = nn.Linear(config.n_embd, config.n_embd)
-        # regularization
+
+        # Regularization layers
         self.attn_drop = nn.Dropout(config.attn_pdrop)
         self.resid_drop = nn.Dropout(config.resid_pdrop)
-        # output projection
+
+        # Output projection
         self.proj = nn.Linear(config.n_embd, config.n_embd)
-        # causal mask to ensure that attention is only applied to the left in the input sequence
-        self.register_buffer("mask", torch.tril(torch.ones(config.block_size, config.block_size))
-                                     .view(1, 1, config.block_size, config.block_size))
+
+        # Mask to enforce causality in the attention mechanism
+        self.register_buffer(
+            "mask",
+            torch.tril(torch.ones(config.block_size, config.block_size)).view(
+                1, 1, config.block_size, config.block_size
+            ),
+        )
         self.n_head = config.n_head
 
     def forward(self, x, layer_past=None):
-        # (B x T x C) is of dimension (batch x block_size x n_embd) which is (batch x l x d) in the handout.
-        # nh should be number_of_heads, and hs would then stand for n_embed (or "dimensionality" d in the handout) per head
-
+        """
+        Computes the attention scores and performs the self-attention operation.
+        Arguments:
+            x: Input tensor of shape (batch_size, sequence_length, embedding_dim).
+            layer_past: Optional past layer information for speed optimization.
+        """
         B, T, C = x.size()
 
-        # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        k = self.key(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        q = self.query(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
-        v = self.value(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
+        # Compute keys, queries, and values
+        k = self.key(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        q = self.query(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        v = self.value(x).view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
 
-        # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
+        # Perform scaled dot-product attention
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.mask[:,:,:T,:T] == 0, -1e10) # todo: just use float('-inf') instead?
+        att = att.masked_fill(self.mask[:, :, :T, :T] == 0, float("-inf"))
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
-        y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-        y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
+        y = att @ v
 
-        # output projection
+        # Concatenate heads and apply the final projection
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.resid_drop(self.proj(y))
         return y
 
+
 class CausalCrossAttention(nn.Module):
     """
-    Modifications over the self-attention layer to handle two inputs and perform
-    cross-attention between them.
-    This follows the implementation of the self attention module with
-    auto-regressive masking on (key).
-    Manipulation of batch-size to allow for different batch size between the 
-    two inputs, with broadcasting over to the higher batch size value.
+    Implements a cross-attention mechanism that attends between two input sequences.
+    Adapts the self-attention mechanism to handle two distinct input tensors.
     """
 
     def __init__(self, config):
         super().__init__()
-        assert config.n_embd % config.n_head == 0
-        # key, query, value projections for all heads
+        assert (
+            config.n_embd % config.n_head == 0
+        ), "Embedding dimension must be divisible by the number of heads."
+
+        # Projections for keys, queries, and values
         self.key = nn.Linear(config.n_embd, config.n_embd)
         self.query = nn.Linear(config.n_embd, config.n_embd)
         self.value = nn.Linear(config.n_embd, config.n_embd)
-        # regularization
+
+        # Regularization layers
         self.attn_drop = nn.Dropout(config.attn_pdrop)
         self.resid_drop = nn.Dropout(config.resid_pdrop)
-        # output projection
+
+        # Output projection
         self.proj = nn.Linear(config.n_embd, config.n_embd)
-        # causal mask to ensure that attention is only applied to the left in the input sequence
-        self.register_buffer("mask", torch.tril(torch.ones(config.block_size, config.block_size))
-                                     .view(1, 1, config.block_size, config.block_size))
+
+        # Mask to enforce causality in the attention mechanism
+        self.register_buffer(
+            "mask",
+            torch.tril(torch.ones(config.block_size, config.block_size)).view(
+                1, 1, config.block_size, config.block_size
+            ),
+        )
         self.n_head = config.n_head
 
     def forward(self, x_kv, x_q):
+        """
+        Computes cross-attention between two input sequences.
+        Arguments:
+            x_kv: Input tensor used as keys and values (batch_size_k, seq_length_k, embedding_dim).
+            x_q: Input tensor used as queries (batch_size_q, seq_length_q, embedding_dim).
+        """
         Bk, Tk, Ck = x_kv.size()
         Bq, Tq, Cq = x_q.size()
 
-        # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        
-        # keys of x1
-        k = self.key(x_kv).view(Bk, Tk, self.n_head, Ck // self.n_head).transpose(1, 2) # (B, nh, Tk, hs)
-        
-        # query with x2
-        q = self.query(x_q).view(Bq, Tq, self.n_head, Cq // self.n_head).transpose(1, 2) # (B, nh, Tq, hs)
-        
-        # values from x1
-        v = self.value(x_kv).view(Bk, Tk, self.n_head, Ck // self.n_head).transpose(1, 2) # (B, nh, Tk, hs)
+        # Compute keys, queries, and values
+        k = self.key(x_kv).view(Bk, Tk, self.n_head, Ck // self.n_head).transpose(1, 2)
+        q = self.query(x_q).view(Bq, Tq, self.n_head, Cq // self.n_head).transpose(1, 2)
+        v = (
+            self.value(x_kv)
+            .view(Bk, Tk, self.n_head, Ck // self.n_head)
+            .transpose(1, 2)
+        )
 
-        # causal self-attention;  (B, nh, Tk, hs) x (B, nh, hs, Tq) -> (B, nh, Tq, Tk)
+        # Perform scaled dot-product attention
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        
-        B = max(Bk, Bq)
-        
-        att = att.masked_fill(self.mask[:,:,:Tq,:Tk] == 0, -1e10) 
+        att = att.masked_fill(self.mask[:, :, :Tq, :Tk] == 0, float("-inf"))
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
-        y = att @ v # (B, nh, Tq, Tk) x (B, nh, Tk, hs) -> (B, nh, Tq, hs)
-        y = y.transpose(1, 2).contiguous().view(B, Tq, Cq) # re-assemble all head outputs side by side
+        y = att @ v
 
-        # output projection
+        # Concatenate heads and apply the final projection
+        y = y.transpose(1, 2).contiguous().view(max(Bk, Bq), Tq, Cq)
         y = self.resid_drop(self.proj(y))
         return y

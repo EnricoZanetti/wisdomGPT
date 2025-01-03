@@ -1,50 +1,52 @@
-
 """
-GPT model:
-- the initial stem consists of a combination of token encoding and a positional encoding
-- the meat of it is a uniform sequence of Transformer blocks
-    - each Transformer is a sequential combination of a 1-hidden-layer MLP block and a self-attention block
-    - all blocks feed into a central residual pathway similar to resnets
-- the final decoder is a linear projection into a vanilla Softmax classifier
+GPT Model:
+- The initial stem combines token encoding and positional encoding.
+- The core architecture consists of a sequence of Transformer blocks:
+  - Each Transformer block includes a self-attention module and a feed-forward module (MLP).
+  - These modules interact through residual connections, inspired by ResNets.
+- The final output is produced via a linear projection followed by a Softmax classifier.
 
-Originally forked from Andrej Karpathy's minGPT.
+Originally derived from Andrej Karpathy's minGPT.
 
-XCS224N : Homework 5
-
-John Hewitt <johnhew@stanford.edu>
-Ansh Khurana <anshk@stanford.edu>
+Stanford XCS224N: Homework 5
+Authors:
+- John Hewitt <johnhew@stanford.edu>
+- Ansh Khurana <anshk@stanford.edu>
 """
 
 import math
-
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-
 from .attention import CausalSelfAttention, CausalCrossAttention
 
+
 class GPTConfig:
-    """ base GPT config, params common to all GPT versions """
-    embd_pdrop = 0.1
-    resid_pdrop = 0.1
-    attn_pdrop = 0.1
-    perceiver = False
-    bottleneck_dim = None
+    """Base GPT configuration with parameters common to all GPT variants."""
+
+    embd_pdrop = 0.1  # Dropout probability for embeddings
+    resid_pdrop = 0.1  # Dropout probability for residuals
+    attn_pdrop = 0.1  # Dropout probability for attention
+    perceiver = False  # Flag to enable Perceiver variant
+    bottleneck_dim = None  # Dimension of the Perceiver bottleneck, if used
 
     def __init__(self, vocab_size, block_size, **kwargs):
         self.vocab_size = vocab_size
         self.block_size = block_size
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             setattr(self, k, v)
 
+
 class GPT1Config(GPTConfig):
-    """ GPT-1 like network roughly 125M params """
-    n_layer = 12
-    n_head = 12
-    n_embd = 768
+    """Configuration for a GPT-1 like model with ~125M parameters."""
+
+    n_layer = 12  # Number of Transformer layers
+    n_head = 12  # Number of attention heads
+    n_embd = 768  # Embedding size
+
 
 class Block(nn.Module):
-    """ an unassuming Transformer block """
+    """Defines a standard Transformer block."""
 
     def __init__(self, config):
         super().__init__()
@@ -59,93 +61,62 @@ class Block(nn.Module):
         )
 
     def forward(self, x):
+        """
+        Forward pass through the Transformer block.
+
+        Args:
+            x: Input tensor.
+
+        Returns:
+            Transformed tensor after self-attention and feed-forward layers.
+        """
         x = x + self.attn(self.ln1(x))
         x = x + self.mlp(self.ln2(x))
         return x
 
+
 class DownProjectBlock(nn.Module):
-    """Transformer block used for down projection.
+    """Transformer block for down-projection in the Perceiver model."""
 
-    Initialize similarly to the regular transformer Block class,
-    while using the CausalCrossAttention layer instead of the regular
-    CausalSelfAttention layer.
-
-    You also need to initialize the parameter for the basis vectors `self.C` here.
-    Initialize `self.C` with appropriate dimensions and xavier_uniform initialization.
-
-    self.C should be 1 x bottleneck_dim x n_embd. We need the first dimension
-    for appropriate broadcasting along the batch_size dimension of the input
-    sequence.
-
-    `self.C` will be used to compute the Query vector for the cross attention
-    layer.
-    """
     def __init__(self, config):
         super().__init__()
-
-        ### [part g]: Write your DownProjectBlock below.
-        ### Hint: Copy over the code from Block and make necessary modifications.
-
-        ### START CODE HERE
-
-        # Initialize the first and second layer normalization layer
         self.ln1 = nn.LayerNorm(config.n_embd)
         self.ln2 = nn.LayerNorm(config.n_embd)
-
         self.cross_attn = CausalCrossAttention(config)
-
-        # Define the MLP (Feed-Forward Network)
         self.mlp = nn.Sequential(
             nn.Linear(config.n_embd, 4 * config.n_embd),
             nn.GELU(),
             nn.Linear(4 * config.n_embd, config.n_embd),
             nn.Dropout(config.resid_pdrop),
         )
-
-        # Initialize the basis vectors self.C with dimensions (1, bottleneck_dim, n_embd)
+        # Basis vectors for the bottleneck
         self.C = nn.Parameter(torch.Tensor(1, config.bottleneck_dim, config.n_embd))
         nn.init.xavier_uniform_(self.C)
-        ### END CODE HERE
 
     def forward(self, x_input):
-        """Hint: perform cross-attention between x_input and self.C.
-        Use the layernorm layers on C, and then on the input to the MLP.
         """
-        ### [part g]: Write your DownProjectBlock below.
-        ### Hint: Copy over the code from Block and make necessary modifications.
-        ### Should be around 3-5 lines.
+        Forward pass through the down-projection block.
 
-        ### START CODE HERE
-        # Apply layer normalization to x_input and self.C, then calculate cross-attention
+        Args:
+            x_input: Input tensor.
+
+        Returns:
+            Transformed tensor with reduced dimensionality via cross-attention.
+        """
         normalized_x_input = self.ln1(x_input)
         normalized_C = self.ln1(self.C)
         cross_attn_output = self.cross_attn(normalized_x_input, normalized_C)
-
-        # Add the residual connection and apply the second layer normalization
         residual_connection = cross_attn_output + x_input
         cross_attn_output = self.ln2(residual_connection)
-
-        # Pass the result through the MLP
         output = self.mlp(cross_attn_output)
-
-        # Return the final output
         return output
-        ### END CODE HERE
 
 
 class UpProjectBlock(nn.Module):
-    """Transformer block used for up projection.
+    """Transformer block for up-projection in the Perceiver model."""
 
-    Initialize similarly to the regular transformer Block class,
-    while using the CausalCrossAttention layer instead of the regular
-    CausalSelfAttention layer.
-    """
     def __init__(self, config):
         super().__init__()
-        ### [part g]: Write your UpProjectBlock below.
-        ### Hint: Copy over the code from Block and make necessary modifications.
-
-        ### START CODE HERE
         self.ln1 = nn.LayerNorm(config.n_embd)
         self.ln2 = nn.LayerNorm(config.n_embd)
         self.cross_attn = CausalCrossAttention(config)
@@ -155,75 +126,65 @@ class UpProjectBlock(nn.Module):
             nn.Linear(4 * config.n_embd, config.n_embd),
             nn.Dropout(config.resid_pdrop),
         )
-        ### END CODE HERE
 
     def forward(self, y, x_input):
-        """Hint: perform cross-attention between previous layer's output y and
-        x_input.
-        Use the layernorm layers on y, and then on the input to the MLP.
         """
-        ### [part g]: Write your DownProjectBlock below.
-        ### Hint: Copy over the code from Block and make necessary modifications.
-        ### Should be around 3-5 lines.
+        Forward pass through the up-projection block.
 
-        ### START CODE HERE
-        # Apply layer normalization to the previous layer's output (y) and the input (x_input)
+        Args:
+            y: Input tensor from the previous layer.
+            x_input: Original input tensor for cross-attention.
+
+        Returns:
+            Transformed tensor with increased dimensionality via cross-attention.
+        """
         normalized_y = self.ln1(y)
         normalized_x = self.ln1(x_input)
-
-        # Perform cross-attention using normalized y (query) and x_input (key, value)
         cross_attn_output = self.cross_attn(normalized_y, normalized_x)
-
-        # Add the residual connection between cross-attention output and y
         residual_connection = cross_attn_output + y
         cross_attn_output = self.ln2(residual_connection)
-
-        # Pass the normalized output through the MLP
         output = self.mlp(cross_attn_output)
-
-        # Return the final output
         return output
-        ### END CODE HERE
+
 
 class GPT(nn.Module):
-    """  the full GPT language model, with a context size of block_size """
+    """Defines the full GPT model with configurable Perceiver variant."""
 
     def __init__(self, config):
         super().__init__()
 
-        # input embedding stem
+        # Input embedding and positional encoding
         self.tok_emb = nn.Embedding(config.vocab_size, config.n_embd)
         self.pos_emb = nn.Parameter(torch.zeros(1, config.block_size, config.n_embd))
         self.drop = nn.Dropout(config.embd_pdrop)
-        # transformer
+
+        # Transformer layers
         self.perceiver = config.perceiver
-        if config.perceiver:
+        if self.perceiver:
             input_block_size = config.block_size
-
-            # input sequence based causal mask
             self.down_block = DownProjectBlock(config)
-
-            # bottleneck basis based causal mask
             config.block_size = config.bottleneck_dim
-            self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer-2)])
-
-            # reset value of the block size back to the original.
+            self.blocks = nn.Sequential(
+                *[Block(config) for _ in range(config.n_layer - 2)]
+            )
             config.block_size = input_block_size
             self.up_block = UpProjectBlock(config)
-
-
         else:
             self.blocks = nn.Sequential(*[Block(config) for _ in range(config.n_layer)])
-        # decoder head
+
+        # Final layer normalization and output projection
         self.ln_f = nn.LayerNorm(config.n_embd)
         self.head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
         self.block_size = config.block_size
         self.apply(self._init_weights)
 
-        print("number of parameters: {}".format(sum(p.numel() for p in self.parameters())))
+        print(f"Number of parameters: {sum(p.numel() for p in self.parameters())}")
 
     def _init_weights(self, module):
+        """
+        Initializes the weights of the model.
+        """
         if isinstance(module, (nn.Linear, nn.Embedding)):
             module.weight.data.normal_(mean=0.0, std=0.02)
             if isinstance(module, nn.Linear) and module.bias is not None:
@@ -233,15 +194,28 @@ class GPT(nn.Module):
             module.weight.data.fill_(1.0)
 
     def get_block_size(self):
+        """
+        Returns the maximum sequence length supported by the model.
+        """
         return self.block_size
 
     def forward(self, idx, targets=None):
-        b, t = idx.size()
-        assert t <= self.block_size, "Cannot forward, model block size (%d, %d) is exhausted." % (t, self.block_size)
+        """
+        Forward pass through the GPT model.
 
-        # forward the GPT model
-        token_embeddings = self.tok_emb(idx) # each index maps to a (learnable) vector
-        position_embeddings = self.pos_emb[:, :t, :] # each position maps to a (learnable) vector
+        Args:
+            idx: Input tensor of token indices.
+            targets: Target tensor for loss calculation (optional).
+
+        Returns:
+            logits: Logits from the output layer.
+            loss: Cross-entropy loss (if targets are provided).
+        """
+        b, t = idx.size()
+        assert t <= self.block_size, f"Block size exceeded: {t} > {self.block_size}"
+
+        token_embeddings = self.tok_emb(idx)
+        position_embeddings = self.pos_emb[:, :t, :]
         x_input = self.drop(token_embeddings + position_embeddings)
 
         if self.perceiver:
@@ -249,7 +223,6 @@ class GPT(nn.Module):
         else:
             x = x_input
 
-        # always compute through the blocks
         x = self.blocks(x)
 
         if self.perceiver:
@@ -258,9 +231,10 @@ class GPT(nn.Module):
         x = self.ln_f(x)
         logits = self.head(x)
 
-        # if we are given some desired targets also calculate the loss
         loss = None
         if targets is not None:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=0)
+            loss = F.cross_entropy(
+                logits.view(-1, logits.size(-1)), targets.view(-1), ignore_index=0
+            )
 
         return logits, loss
