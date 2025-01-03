@@ -1,4 +1,4 @@
-name: XCS224N
+name: wisdom-gpt
 channels:
   - defaults
   - conda-forge

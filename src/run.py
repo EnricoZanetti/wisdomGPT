@@ -35,10 +35,8 @@ import random
 from torch.utils.tensorboard import SummaryWriter
 import sys
 
-random.seed(0)
-
 # Import necessary modules and utilities
-from submission import (
+from core import (
     GPT,
     GPTConfig,
     CharCorruptionDataset,
@@ -53,6 +51,8 @@ from submission import (
     pretrain,
     train,
 )
+
+random.seed(0)
 
 
 def create_model(args, mconf):

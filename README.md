@@ -1,106 +1,115 @@
-# XCS224N Revisions
-Repository contents for the previous cohort is in the following branches.
-- `Rev_XCS224N_Sept2019-Mar2021` branch: cohort from Sept. 2019 to March 2021
+# **WisdomGPT: A Framework for Knowledge-Enhanced Transformer Training**
 
-# XCS Student Code Repository
-This repository contains all code for your assignment!
-The build tools in this repo can be used to compile a LaTeX submission.
+**WisdomGPT** is a powerful framework designed to train, fine-tune, and evaluate **Transformer models** for knowledge-intensive tasks. It demonstrates how pretraining on a vast corpus of text containing world knowledge (e.g., Wikipedia) significantly enhances a model's ability to generalize beyond the training data. By fine-tuning the pretrained model on task-specific datasets, **WisdomGPT** enables models to perform well on knowledge-driven challenges.
 
-# What should I submit?
-Take a look at the problem set PDF:
+## Key Concepts
 
-- If it contains any questions requiring written responses, a **written (or
-typeset) PDF document** submission is required (typeset instructions below).
+1. **Knowledge-Intensive Tasks**:
+   - Tasks that require external knowledge not explicitly present in the training data.
 
-- If contains any questions requiring coding responses, **assignment5_submission.zip** must be uploaded and submitted to the autograder.
-instructions below). See the A5.pdf file for how to prepare the file.
+2. **Pretraining**:
+   - Training a model on a large text corpus to acquire general linguistic and factual knowledge.
 
-- Many of our problem sets will require both written (or typeset) AND coding submissions. Good luck!
+3. **Fine-Tuning**:
+   - Adapting the pretrained model to specific tasks, allowing it to leverage learned knowledge effectively.
 
+4. **Performance Improvement**:
+   - Fine-tuned models outperform baseline models on held-out datasets by utilizing pretrained knowledge.
 
-## How to create a typeset submission using LaTeX
-You are welcome to typeset your submission in any legible format (including
-handwritten).  For those who are trying LaTeX for the first time, consider using
-the following build process (we've tried to streamline it as much as possible
-for you!).  All instructions that follow are for our build process, which will
-require a working installation of [TeX Live](https://www.tug.org/texlive/) (This
-website has installation instructions for Windows, Linux, and Mac).  Most linux
-distributions come pre-loaded with this.  Mac users can download and install it
-from [mactex](https://tug.org/mactex/)
+## Framework Overview
 
-All LaTeX files are in the `tex/` subdirectory. Your question responses will be
-typed into the file `tex/submission.tex`.  We recommend attempting to compile
-the document before typing anything in `tex/submission.tex`.
+Built upon **Andrej Karpathy’s** [**minGPT**](https://github.com/karpathy/minGPT), **WisdomGPT** offers:
 
-Run `make` form the root directory.  Complete `make` documentation is
-provided within the Makefile.  To get started, clone the repository and try out
-a simple `make` command:
-```
-$ make clean -s
+- A **simple and transparent** codebase for learning and experimenting with Transformer models.
+- Seamless support for **pretraining**, **fine-tuning**, and **evaluation** workflows.
+- Tools to run experiments locally or on Azure virtual machines with GPU acceleration.
+
+## Installation
+
+### **Using Conda**
+
+Set up the environment for local development or Azure training:
+
+```bash
+conda env create -f environment.yml
+conda activate wisdom-gpt
 ```
 
-If the command runs correctly, it will remove the assignment PDF from your root
-directory.  Don't worry though!  Try recreating it again using the following
-command:
-```
-$ make without_solutions -s
-```
+For GPU support, use the CUDA environment:
 
-After some file shuffling and a few passes of the LaTeX compiler, you should see
-a fresh new assignment handout in the root directory.  Now try the following
-command:
-```
-$ make with_solutions -s
+```bash
+conda env create -f environment.yml
+conda activate wisdom-gpt_cuda
 ```
 
-You should now see a `\*_Solutions.pdf` file in your root directory.  This
-contains the content from the original handout as well as your solutions (those
-typed into `tex/submission.tex`)!  If you haven't edited `tex/submission.tex`
-yet, it will probably look a lot like the `without_solutions` version.
+## Usage
 
-To see what it looks like with some solution code, open up `tex/submission.tex`
-and enter the following code between the tags `### START CODE HERE ###` and
-`### END CODE HERE ###`:
-```latex
-\begin{answer}
-  % ### START CODE HERE ###
-  \LaTeX
-  % ### END CODE HERE ###
-\end{answer}
+### Command-Line Interface
+
+Run the `run.py` script to pretrain, fine-tune, or evaluate models:
+
+```bash
+python run.py --function=<function> --variant=<attention-model> --pretrain_corpus_path=<file> [options]
 ```
 
-Now run the following command:
+### Key Arguments
+
+| Argument                   | Description                                                                 | Default Value   |
+|----------------------------|-----------------------------------------------------------------------------|-----------------|
+| `--function`               | Specify 'pretrain', 'finetune', or 'evaluate'.                              | None (required) |
+| `--variant`                | Specify the model variant: 'vanilla' or 'perceiver'.                       | None (required) |
+| `--pretrain_corpus_path`   | Path to the pretraining corpus.                                             | None (required) |
+| `--writing_params_path`    | Path to save model parameters after training.                               | None            |
+| `--reading_params_path`    | Path to load pretrained parameters for fine-tuning or evaluation.           | None            |
+| `--finetune_corpus_path`   | Path to the fine-tuning corpus.                                             | None            |
+| `--eval_corpus_path`       | Path to the evaluation corpus.                                              | None            |
+| `--outputs_path`           | Path to save predictions during evaluation.                                 | None            |
+| `--bottleneck_dim`         | Bottleneck dimension for Perceiver models.                                 | `32`            |
+| `--pretrain_lr`            | Learning rate for pretraining.                                              | `6e-3`          |
+| `--finetune_lr`            | Learning rate for fine-tuning.                                              | `6e-4`          |
+
+### Example: Pretraining on Wikipedia
+
+```bash
+python run.py --function=pretrain --variant=vanilla --pretrain_corpus_path=data/wiki.txt --writing_params_path=model/pretrained_model.pth
 ```
-$ make -s
+
+### Example: Fine-Tuning for Knowledge-Intensive Tasks
+
+```bash
+python run.py --function=finetune --variant=perceiver --pretrain_corpus_path=data/wiki.txt --finetune_corpus_path=data/task_data.txt --reading_params_path=model/pretrained_model.pth --writing_params_path=model/finetuned_model.pth
 ```
 
-This command re-runs the default `make` target, which is, conveniently,
-`make with_solutions`.  Opening the file `\*_Solutions.pdf`, you should see
-something like the following:
+### Example: Evaluation
 
-<img src="https://render.githubusercontent.com/render/math?math=\LaTeX">
+```bash
+python run.py --function=evaluate --variant=vanilla --reading_params_path=model/finetuned_model.pth --eval_corpus_path=data/eval_data.txt --outputs_path=results/predictions.txt
+```
 
-## How to create a typeset submission using LaTeX on Overleaf
-[Overleaf](https://www.overleaf.com/) is an online WYSIWYG editor.  While we
-recommend becoming familiar with compiling LaTeX locally, you may instead prefer
-the ease of Overleaf. Follow these steps to get set up with Overleaf (after
-creating an account for yourself):
+### Training Workflow
 
-1. Create a new "Blank Project".
-<img src="README_media/1.png">
-2. Give the project a name.
-3. Delete the file named "main.tex".
-<img src="README_media/3.png">
-4. Upload the following files to your project:
-- "submission.tex"
-- "macros.tex"
-<img src="README_media/4.png">
-5. Open the Overleaf menu at the top left.
-<img src="README_media/5.png">
-6. Change the "Main document" to "submission.tex".
-<img src="README_media/6.png">
-7. Recompile the document.
-<img src="README_media/7.png">
+1. Upload the dataset and code to your VM.
+2. Run the `run.py` script with the desired options.
+3. Allocate approximately 5 hours for pretraining and fine-tuning.
 
-Good luck with the assignment!  Remember that you can always submit organized
-and legible handwritten PDFs instead of typeset documents.
+## Outputs
+
+1. **Model Parameters**:
+   - Saved as `.pth` files after pretraining or fine-tuning.
+
+2. **Evaluation Results**:
+   - Predictions written to a specified `--outputs_path`.
+
+## Acknowledgments
+
+This project is inspired by:
+- [Andrej Karpathy’s minGPT](https://github.com/karpathy/minGPT)
+- The [Stanford XCS224N course](https://online.stanford.edu/courses/xcs224n-natural-language-processing-deep-learning).
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Contact
+
+- **Developer**: [Enrico Zanetti](https://www.linkedin.com/in/enrico-zanetti/)
