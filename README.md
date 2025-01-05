@@ -1,6 +1,6 @@
 # **wisdomGPT: A Framework for Knowledge-Enhanced Transformer Training**
 
-**wisdomGPT** is a powerful framework designed to train, fine-tune, and evaluate **Transformer models** for knowledge-intensive tasks. It demonstrates how pretraining on a vast corpus of text containing world knowledge (e.g., Wikipedia) significantly enhances a model's ability to generalize beyond the training data. By fine-tuning the pretrained model on task-specific datasets, **wisdomGPT** enables models to perform well on knowledge-driven challenges.
+**wisdomGPT** is a framework designed to train, fine-tune, and evaluate **Transformer models** for knowledge-intensive tasks. It demonstrates how pretraining on a vast corpus of text containing world knowledge (e.g., Wikipedia) significantly enhances a model's ability to generalize beyond the training data. By fine-tuning the pretrained model on task-specific datasets, **wisdomGPT** enables models to perform well on knowledge-driven challenges.
 
 <p align="center">
   <img src="src/images/wisdomgpt-image.webp" alt="wisdomgpt" width="500"/>
