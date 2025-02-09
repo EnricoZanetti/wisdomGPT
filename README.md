@@ -9,17 +9,13 @@
 
 ## Key Concepts
 
-1. **Knowledge-Intensive Tasks**:
-   - Tasks that require external knowledge not explicitly present in the training data.
+1. **Knowledge-Intensive Tasks**: Tasks that require external knowledge not explicitly present in the training data.
 
-2. **Pretraining**:
-   - Training a model on a large text corpus to acquire general linguistic and factual knowledge.
+2. **Pretraining**: Training a model on a large text corpus to acquire general linguistic and factual knowledge.
 
-3. **Fine-Tuning**:
-   - Adapting the pretrained model to specific tasks, allowing it to leverage learned knowledge effectively.
+3. **Fine-Tuning**: Adapting the pretrained model to specific tasks, allowing it to leverage learned knowledge effectively.
 
-4. **Performance Improvement**:
-   - Fine-tuned models outperform baseline models on held-out datasets by utilizing pretrained knowledge.
+4. **Performance Improvement**: Fine-tuned models outperform baseline models on held-out datasets by utilizing pretrained knowledge.
 
 ## Framework Overview
 
