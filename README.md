@@ -95,11 +95,9 @@ python run.py --function=evaluate --variant=vanilla --reading_params_path=model/
 
 ## Outputs
 
-1. **Model Parameters**:
-   - Saved as `.pth` files after pretraining or fine-tuning.
+1. **Model Parameters**: Saved as `.pth` files after pretraining or fine-tuning.
 
-2. **Evaluation Results**:
-   - Predictions written to a specified `--outputs_path`.
+2. **Evaluation Results**: Predictions written to a specified `--outputs_path`.
 
 ## Acknowledgments
 
